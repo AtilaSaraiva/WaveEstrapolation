@@ -5,16 +5,15 @@ module difFinitas
     contains
 
         subroutine waveEstrap (ordem,Nz,Nx,Nt,dx,dz,dt,wavelet,campoVel,fontes)
-            integer,intent(in):: Nx,Nz,Nt,fontes(:,:),ordem
-            real,intent(in):: campoVel(Nz,Nx),dx,dt,dz,wavelet(:)
-            !real:: P_futuro(Nz,Nx),P_passado(Nz,Nx),P_atual(Nz,Nx)
-            real,allocatable:: P_futuro(:,:),P_passado(:,:),P_atual(:,:)
-            real,allocatable:: lap(:,:)
-            real,allocatable:: campoVelExt(:,:),mascaraAtenuacaoBorda(:,:)
-            character(len=30) filename
-
-            real:: waveletExtendida(Nt),prod=1.0
-            integer:: i,j,k,L,f1,f2,j1,lFontes,counter,Nb,Nxb,Nzb
+            integer,intent(in) :: Nx,Nz,Nt,fontes(:,:),ordem
+            real,intent(in)    :: campoVel(Nz,Nx),dx,dt,dz,wavelet(:)
+            real,allocatable   :: P_futuro(:,:),P_passado(:,:),P_atual(:,:)
+            real,allocatable   :: lap(:,:)
+            real,allocatable   :: campoVelExt(:,:)
+            real               :: coefAtenuacao(Nb)
+            character(len=30)  :: filename
+            real               :: waveletExtendida(Nt),prod=1.0
+            integer            :: i,j,k,L,f1,f2,j1,lFontes,counter,Nb,Nxb,Nzb
 
             filename = 'snap.ad'
 
@@ -27,16 +26,16 @@ module difFinitas
             Nb = 30
             Nxb = Nx + 2*Nb
             Nzb = Nz + 2*Nb
-            allocate(campoVelExt(Nzb,Nxb),mascaraAtenuacaoBorda(Nzb,Nxb))
+            allocate(campoVelExt(Nzb,Nxb))
             allocate(P_futuro(Nzb,Nxb),P_passado(Nzb,Nxb),P_atual(Nzb,Nxb),lap(Nzb,Nxb))
 
             campoVelExt = extenCampoVel(Nx,Nz,Nb,campoVel)
-            mascaraAtenuacaoBorda = mascaraAtenuacao(Nx,Nz,Nb,dx,dz)
 
             P_passado = 0.0
             P_atual = 0.0
             P_futuro = 0.0
 
+            coefAtenuacao = coeficientesDeAtenuacao(Nb)
 
             j=1
             !do k=2,Nt-1
@@ -65,35 +64,43 @@ module difFinitas
             close(30)
         end subroutine waveEstrap
 
-        subroutine atenuacao(nxb,nzb,nb,p2)
+        function coeficientesDeAtenuacao(Nb)
+            ! Entrada e Saída
+            integer,intent(in):: Nb
+            real:: coefAtenuacao(Nb)
+            ! Auxiliares
+            integer:: i
+
+            do i =1,nb
+               coefAtenuacao(i) = exp(-(0.008*(nb-i))**2)
+            enddo
+        end function coeficientesDeAtenuacao
+
+
+        subroutine atenuacao(nxb,nzb,nb,coef,p2)
             integer:: nxb, nzb,nb,i,j,lz,lx
+            real,intent(in):: coef(Nb)
             real, dimension (:,:):: p2(nzb,nxb)
-            real:: alpha,alpha1
 
             lz=nzb
-            do i =1,nb
-               do j=1,nxb
-                   alpha = exp(-(0.008*(nb-i))**2)
-                   !alpha = 0.95**((float(Nb-i)/float(Nb))**2.0)
-                   p2(i,j)=p2(i,j)*alpha
-                   p2(lz,j)=p2(lz,j)*alpha
-               end do
-               lz=lz-1
-            enddo
-
             lx=nxb
             do i =1,nb
+               do j=1,nxb
+                   p2(i,j)=p2(i,j)*coef(i)
+                   p2(lz,j)=p2(lz,j)*coef(i)
+               end do
                do j=1,nzb
-                   !alpha = 0.95**(((i-1)/Nb)**2.0)
                    alpha = exp(-(0.008*(nb-i))**2)
-                   p2(j,i)=p2(j,i)*alpha
-                   p2(j,lx)=p2(j,lx)*alpha
+                   p2(j,i)=p2(j,i)*coef(i)
+                   p2(j,lx)=p2(j,lx)*coef(i)
                enddo
                lx=lx-1
+               lz=lz-1
             enddo
 
             return
         end subroutine atenuacao
+
 
         function mascaraAtenuacao(Nx,Nz,Nb,dx,dz)
             integer,intent(in):: Nx,Nz,Nb
