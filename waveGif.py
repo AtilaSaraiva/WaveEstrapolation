@@ -17,8 +17,6 @@ def save_gif(P, name='animation',
     '''
     filename = name + '.gif'
 
-    frames_div = 5
-
     nx, nz, nt = P.shape
     fig = plt.figure(dpi=dpi)
     fig.set_size_inches(2*nx/np.linalg.norm([nx,nz]),
@@ -43,7 +41,7 @@ def save_gif(P, name='animation',
     while i<nt:
         frames.append([ax.imshow(P[:,:,i], cmap, animated=True,vmin=vmin,vmax=vmax,
                 interpolation='nearest')])
-        i = i + frames_div
+        i = i + 1
 #    start = time()
     gif = manimation.ArtistAnimation(fig, frames, blit=True)
     gif.save(filename, writer='imagemagick', fps=fps)
@@ -54,55 +52,14 @@ def save_gif(P, name='animation',
 
     return(P)
 
-L  = 10
-Nx = 200
-Nz = 200
-Nt = 300
-h1 = 1000
-h2 = 1000
-dx = 3.0
-dz = 3.0
-#dt = (4000*(dx**(-2)+dz**(-2)))**(-0.5)
-dt = 0.02
 
-wavelet = np.empty(10)
-for i in range(len(wavelet)):
-    #wavelet[i] = 20.0*np.sin(20.0*(i-1)*dt)
-    wavelet[i] = 1 + (i+1)**(-1) - (i+1)**(-2) + (i+1)**(-3)
-#h1A = int(h1/dz)
-#h2A = int(h2/dz)
-h1A = int(Nz/3)
-h2A = int(Nz/3)
+def readslice(inputfilename,nx,ny,timeslice):
+    f = open(inputfilename,'rb')
+    f.seek(8*timeslice*nx*ny)
+    field = np.fromfile(f,dtype='float64',count=nx*ny)
+    field = np.reshape(field,(nx,ny))
+    f.close()
+    return field
 
-campoVel                = np.zeros((Nz,Nx))
-campoVel[0:h1A,:]       = 2000.0
-campoVel[h1A:h2A+h1A,:] = 3500.0
-campoVel[h2A+h1A:Nz,:]  = 4000.0
-
-fontes = np.empty((2,1))
-fontes[:,0] = np.array([1,int(Nx/2)])
-
-snapCube = wave.diffinitas.waveestrap (Nt,dx,dz,dt,wavelet,campoVel,fontes,nx=Nx,nz=Nz)
-
-"""
-fig, ax = plt.subplots()
-cmap='rainbow'
-parada = ax.imshow(snapCube[:,:,50], cmap, animated=True,
-            interpolation='nearest')
-frames = []
-frames_div = 5
-for frame in snapCube[1::frames_div]:
-    frames.append(
-    [ax.imshow(frame, cmap, animated=True,
-            interpolation='nearest')])
-
-frame = []
-for i in range(Nt):
-    frames.append([ax.imshow(snapCube[:,:,i], cmap, animated=True,
-            interpolation='nearest')])
-gif = manimation.ArtistAnimation(fig, frames, blit=True)
-
-plt.show()
-
-"""
-save_gif(snapCube,name="wave",fps=24)
+snaps1 = readslice('snap.ad',200,200,35)
+#save_gif(snaps)

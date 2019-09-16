@@ -15,7 +15,7 @@ module difFinitas
     real,parameter:: numPi = 3.14159263
     contains
 
-        subroutine waveEstrap (ordem,Nz,Nx,Nt,Nb,dx,dz,dt,wavelet,campoVel,fontes)
+        subroutine waveEstrap (ordem,Nz,Nx,Nt,Nb,dx,dz,dt,wavelet,campoVel,fontes,snaps)
             !=============================================!
             ! Subrotina para fazer a propagação de uma
             ! onda num campo de velocidade.
@@ -24,6 +24,7 @@ module difFinitas
             ! Entrada e Saída
             integer,intent(in) :: Nx,Nz,Nt,fontes(:,:),ordem,Nb
             real,intent(in)    :: campoVel(Nz,Nx),dx,dt,dz,wavelet(:)
+            real,intent(out):: snaps(Nz,Nx,Nt/20-1)
 
             ! Variáveis Auxiliares
             real,allocatable   :: P_futuro(:,:),P_passado(:,:),P_atual(:,:) ! Campos de pressão
@@ -38,7 +39,7 @@ module difFinitas
 
             ! Criando arquivo para guardar os snaps
             filename = 'snap.ad'
-            open(30,file=filename,status='replace',recl=4*Nz*Nx,form='unformatted',access='direct')
+            !open(30,file=filename,status='replace',recl=4*Nz*Nx,form='unformatted',access='direct')
 
             ! Extraindo a quantidade de fontes
             lFontes = ubound(fontes,2)
@@ -84,14 +85,15 @@ module difFinitas
 
                 ! Se a iteração for múltiplo de 20, escrever o campo no arquivo
                 if(mod(k,20) == 0)then
-                    write(30,rec=j) P_futuro(Nb+1:Nz+Nb,Nb+1:Nx+Nb)
+                    !write(30,rec=j) P_futuro(Nb+1:Nz+Nb,Nb+1:Nx+Nb)
+                    snaps(:,:,j) = P_futuro(Nb+1:Nz+Nb,Nb+1:Nx+Nb)
                     j = j + 1
                 end if
 
                 P_passado = P_atual
                 P_atual = P_futuro
             end do
-            close(30)
+            !close(30)
         end subroutine waveEstrap
 
         function coeficientesDeAtenuacao(Nb)
@@ -262,33 +264,70 @@ end module difFinitas
 
 program wave
     use difFinitas
+    use rsf
     implicit none
+    logical:: verb
+    ! Arquivos de entrada
+    type(file) :: FcampoVel,Fpulso,Fsnaps
+    type(axa) :: at,az,ax
     ! Parâmetros do modelo
-    integer,parameter:: Nx=200,Nz=200,Nt=1500,ordem=8,Nb = 40
-    real,parameter:: h1=1000,h2=1000
-    real,parameter:: dx=10.0,dz=10.0,dt=0.001
+    integer:: nx,nz,nt,nb,ordem
+    real:: dt,dx,dz
+!    integer,parameter:: Nx=200,Nz=200,Nt=1500,ordem=8,Nb = 40
+!    real,parameter:: h1=1000,h2=1000
+!    real,parameter:: dx=10.0,dz=10.0,dt=0.001
     ! Campo de velocidade
-    real:: campoVel(Nz,Nx)
+    real,allocatable:: campoVel(:,:)
     ! Wavelet
-    real:: wavelet(Nt)
+    real,allocatable:: pulso(:)
+    real,allocatable:: snaps(:,:,:)
     ! Auxiliares
     integer:: i,j,h1A,h2A,fontes(2,1),k,counter
 
-    ! Criação do campo de velocidade
-    h1A = Nz/3.0
-    h2A = h1A
-    campoVel(1:h1A,1:Nx) = 2000.0
-    campoVel(h1A:h2A+h1A,1:Nx) = 3500.0
-    campoVel(h2A+h1A:Nz,1:Nx) = 4000.0
 
-    ! Estabelecimento da posição das fotnes
-    fontes(:,1) = [Nz/2,Nx/2]
+    call sf_init()
+    call from_par("verb",verb,.false.)
 
-    ! Leitura do pulso
-    open(50,file="pulso.ad",status='old',recl=4*Nt,form='unformatted',access='direct')
-    read(50,rec=1) wavelet
-    close(50)
+    FcampoVel = rsf_input("vel")
+    Fpulso = rsf_input("wav")
+    Fsnaps = rsf_output("out")
+
+    call iaxa(FcampoVel,az,1)
+    call iaxa(FcampoVel,ax,2)
+    call iaxa(Fpulso,at,1)
+
+    call oaxa(Fsnaps,az,1)
+    call oaxa(Fsnaps,ax,2)
+    call oaxa(Fsnaps,at,3)
+
+    allocate(campoVel(az%n,ax%n))
+    campoVel=0.
+    call rsf_read(FcampoVel,campoVel)
+
+    allocate(pulso(at%n))
+    pulso=0.
+    call rsf_read(Fpulso,pulso)
+
+    allocate(snaps(az%n,ax%n,at%n))
+
+    dt = at%d
+    dz = az%d
+    dx = ax%d
+
+    nt = at%n
+    nz = az%n
+    nx = ax%n
+
+    nb = 0.2 * nx
+
+    ordem = 8
+
+    fontes(:,1) = [1,nx/2]
 
     ! Chamada da subrotina de propagação da onda
-    call waveEstrap (ordem,Nz,Nx,Nt,Nb,dx,dz,dt,wavelet,campoVel,fontes)
+    call waveEstrap (ordem,nz,nx,nt,nb,dx,dz,dt,pulso,campoVel,fontes,snaps)
+
+    call rsf_write(Fsnaps,snaps)
+
+    call exit(0)
 end program wave
