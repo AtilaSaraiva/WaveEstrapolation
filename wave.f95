@@ -285,21 +285,27 @@ program wave
     integer:: i,j,h1A,h2A,fontes(2,1),k,counter
 
 
+    ! Inicializando o madagascar
     call sf_init()
+    ! Variavel de verbose
     call from_par("verb",verb,.false.)
 
+    ! Definindo variáveis que vão conter os arquivos
     FcampoVel = rsf_input("vel")
     Fpulso = rsf_input("wav")
     Fsnaps = rsf_output("out")
 
+    ! Retirando do header as informações de geometria
     call iaxa(FcampoVel,az,1)
     call iaxa(FcampoVel,ax,2)
     call iaxa(Fpulso,at,1)
 
+    ! Definindo a geometria do output
     call oaxa(Fsnaps,az,1)
     call oaxa(Fsnaps,ax,2)
     call oaxa(Fsnaps,at,3)
 
+    ! Alocando variáveis e lendo
     allocate(campoVel(az%n,ax%n))
     campoVel=0.
     call rsf_read(FcampoVel,campoVel)
@@ -310,6 +316,7 @@ program wave
 
     allocate(snaps(az%n,ax%n,at%n))
 
+    ! Retirando da variável de geometria as informações de geometria
     dt = at%d
     dz = az%d
     dx = ax%d
@@ -318,16 +325,21 @@ program wave
     nz = az%n
     nx = ax%n
 
+    ! Tamanho de borda
     nb = 0.2 * nx
 
+    ! Ordem do operador laplaciano
     ordem = 8
 
+    ! Posição da fonte
     fontes(:,1) = [1,nx/2]
 
     ! Chamada da subrotina de propagação da onda
     call waveEstrap (ordem,nz,nx,nt,nb,dx,dz,dt,pulso,campoVel,fontes,snaps)
 
+    ! Escrevendo o arquivo de output
     call rsf_write(Fsnaps,snaps)
 
+    ! Saino
     call exit(0)
 end program wave
