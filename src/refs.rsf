@@ -1,0 +1,14 @@
+0.7 0.7 0.7 0.7 1.7 1.7 1.7 1.7 2.7 2.7 2.7 2.7 n1=4 n2=3 o1=0 d1=0.666667 data_format=ascii_float in=layers.asc
+3.1-git	sfdd	rtm/waveEstrBorda/src:	atila@atila-pc	Mon Sep 23 10:26:02 2019
+
+	data_format="native_float"
+	esize=4
+	in="/var/tmp/rtm/waveEstrBorda/src/layers.rsf@"
+3.1-git	sfspline	rtm/waveEstrBorda/src:	atila@atila-pc	Mon Sep 23 10:26:02 2019
+
+	o1=0
+	data_format="native_float"
+	esize=4
+	in="/var/tmp/rtm/waveEstrBorda/src/refs.rsf@"
+	d1=0.01
+	n1=200

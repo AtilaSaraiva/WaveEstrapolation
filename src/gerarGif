@@ -1,1 +1,1 @@
-vpconvert Fig/snaps.vpl format=gif >animação.gif
+vpconvert Fig/snaps.vpl format=gif

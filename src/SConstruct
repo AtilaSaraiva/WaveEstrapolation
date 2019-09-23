@@ -5,8 +5,16 @@ k1 = 80 # position of the wavelet center
 dt = 0.001 # time sampling rate
 
 Flow('spike',None,'spike n1=%d d1=%e k1=%d' % (nt,dt,k1))
-Flow('wavelet','spike','ricker1 freq=0.2' )
-Result('wavelet','graph')
+Flow('wavelet','spike','ricker1 frequency=20')
+#Result('wavelet','graph')
+
+# Wavelet
+   #Flow('wavelet',None,
+   # '''
+   # spike n1=700 d1=0.001 k1=80 |
+   # ricker1 frequency=20
+   # ''')
+Result('wavelet','wiggle poly=y pclip=100 title=Wavelet')
 
 xmax = 2.0
 zmax = 2.0
@@ -69,9 +77,12 @@ Result('campoVel',
        label2="Distance (km)"
        ''' % (zmax/xmax))
 
-#Flow('snaps','wavelet',"./fdiffmod vel=campoVel.rsf")
-Flow('snaps',['wavelet','campoVel'],"./fdiffmod wav=${SOURCES[0]} vel=${SOURCES[1]}")
-Result('snaps','grey color=h')
+Flow('snaps',['wavelet','campoVel'],"./exe wav=${SOURCES[0]} vel=${SOURCES[1]}")
 
+Result('snaps',
+     '''
+     grey gainpanel=a title=Wave
+     label1=Depth label2=Distance unit1=m unit2=m
+     ''')
 
 End()

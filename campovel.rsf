@@ -1,0 +1,9 @@
+	d2=0.01
+	n2=200
+	label1="Depth"
+	o2=1
+	data_format="native_float"
+	esize=4
+	in="./campovel.ad"
+	d1=0.01
+	n1=200

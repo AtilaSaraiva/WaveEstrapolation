@@ -1,0 +1,9 @@
+
+	o1=0
+	label1="Time"
+	data_format="native_float"
+	esize=4
+	in="./pulso.ad"
+	unit1="s"
+	d1=0.001
+	n1=1000

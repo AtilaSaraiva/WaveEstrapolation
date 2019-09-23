@@ -273,9 +273,6 @@ program wave
     ! Parâmetros do modelo
     integer:: nx,nz,nt,nb,ordem
     real:: dt,dx,dz
-!    integer,parameter:: Nx=200,Nz=200,Nt=1500,ordem=8,Nb = 40
-!    real,parameter:: h1=1000,h2=1000
-!    real,parameter:: dx=10.0,dz=10.0,dt=0.001
     ! Campo de velocidade
     real,allocatable:: campoVel(:,:)
     ! Wavelet
@@ -296,16 +293,29 @@ program wave
     Fsnaps = rsf_output("out")
 
     ! Retirando do header as informações de geometria
-    call iaxa(FcampoVel,az,1)
-    call iaxa(FcampoVel,ax,2)
+    call from_par(FcampoVel,"n1",az%n)
+    call from_par(FcampoVel,"n2",ax%n)
+    call from_par(FcampoVel,"d1",az%d)
+    call from_par(FcampoVel,"d2",ax%d)
+ !  call iaxa(FcampoVel,az,1)
+ !  call iaxa(FcampoVel,ax,2)
     call iaxa(Fpulso,at,1)
 
-    ! Definindo a geometria do output
-    call oaxa(Fsnaps,az,1)
-    call oaxa(Fsnaps,ax,2)
-    call oaxa(Fsnaps,at,3)
+ !  ! Definindo a geometria do output
+    call to_par (Fsnaps,"d1",az%d)
+    call to_par (Fsnaps,"d2",ax%d)
+    call to_par (Fsnaps,"d3",at%d*20)
+    call to_par (Fsnaps,"n1",az%n)
+    call to_par (Fsnaps,"n2",ax%n)
+    call to_par (Fsnaps,"n3",at%n/20-1)
+    call to_par (Fsnaps,"o1",0)
+    call to_par (Fsnaps,"o2",0)
+    call to_par (Fsnaps,"o3",0)
+!   call oaxa(Fsnaps,az,1)
+!   call oaxa(Fsnaps,ax,2)
+!   call oaxa(Fsnaps,at,3)
 
-    ! Alocando variáveis e lendo
+ !  ! Alocando variáveis e lendo
     allocate(campoVel(az%n,ax%n))
     campoVel=0.
     call rsf_read(FcampoVel,campoVel)
@@ -314,7 +324,7 @@ program wave
     pulso=0.
     call rsf_read(Fpulso,pulso)
 
-    allocate(snaps(az%n,ax%n,at%n))
+    allocate(snaps(az%n,ax%n,at%n/20-1))
 
     ! Retirando da variável de geometria as informações de geometria
     dt = at%d
@@ -335,7 +345,7 @@ program wave
     fontes(:,1) = [1,nx/2]
 
     ! Chamada da subrotina de propagação da onda
-    call waveEstrap (ordem,nz,nx,nt,nb,dx,dz,dt,pulso,campoVel,fontes,snaps)
+     call waveEstrap (ordem,nz,nx,nt,nb,dx,dz,dt,pulso,campoVel,fontes,snaps)
 
     ! Escrevendo o arquivo de output
     call rsf_write(Fsnaps,snaps)
