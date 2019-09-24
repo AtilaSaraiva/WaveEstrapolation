@@ -16,6 +16,7 @@ module difFinitas
     contains
 
         subroutine waveEstrap (ordem,Nz,Nx,Nt,Nb,dx,dz,dt,wavelet,campoVel,fontes,snaps)
+            !$acc routine(waveEstrap)
             !=============================================!
             ! Subrotina para fazer a propagação de uma
             ! onda num campo de velocidade.
@@ -33,9 +34,9 @@ module difFinitas
             real               :: coefAtenuacao(Nb)                         ! Coefientes de atenuacao
             character(len=30)  :: filename                                  ! Nome do Arquivo
             real               :: prod=1.0                                  ! Aux de produto
-            integer            :: i,j,k,&                                   ! Contadores
-                                  f1,f2,lFontes,&                           ! Relacionados a posição e num de fontes
-                                  Nxb,Nzb                                   ! Dimensões com a borda
+            integer            :: i,j,k                                     ! Contadores
+            integer            :: f1,f2,lFontes                             ! Relacionados a posição e num de fontes
+            integer            :: Nxb,Nzb                                   ! Dimensões com a borda
 
             ! Criando arquivo para guardar os snaps
             filename = 'snap.ad'
@@ -64,7 +65,7 @@ module difFinitas
 
             j=1
             do k=2,Nt-1
-                write(0,*) 'it',k
+                if(mod(k,100) == 0) write(0,*) 'it',k
 
                 ! Atenuando os campos passado e presente
                 call atenuacao(nxb,nzb,nb,coefAtenuacao,P_passado)
@@ -130,6 +131,7 @@ module difFinitas
 
             lz=nzb
             lx=nxb
+            !$acc kernels
             do i =1,nb
                 do j=1,nxb
                     p2(i,j)=p2(i,j)*coef(i)
@@ -142,6 +144,7 @@ module difFinitas
                 lx=lx-1
                 lz=lz-1
             enddo
+            !$acc end kernels
 
             return
         end subroutine atenuacao
@@ -164,6 +167,7 @@ module difFinitas
 
             ! Copiando os valores do contorno do campo de vel original
             ! na borda do campo extendido
+            !$acc kernels
             do i=-Nb+1,0
                 campoVelExt(i,1:Nx) = campoVel(1,:)
                 campoVelExt(1:Nz,i) = campoVel(:,1)
@@ -178,6 +182,7 @@ module difFinitas
             campoVelExt(-Nb+1:0,Nx+1:Nx+Nb) = campoVel(1,Nx)
             campoVelExt(Nz+1:Nz+Nb,-Nb+1:0) = campoVel(Nz,1)
             campoVelExt(Nz+1:Nz+Nb,Nx+1:Nx+Nb) = campoVel(Nz,Nx)
+            !$acc end kernels
 
         end function extenCampoVel
 
@@ -185,7 +190,7 @@ module difFinitas
             !=============================================!
             ! Subrotina para cálculo do laplaciano de um
             ! campo de pressão, com ordens de 2,4,6 e 8.
-            ! !=============================================!
+            !=============================================!
 
             ! Entrada e Saída
             integer,intent(in):: Nx,Nz,ordem,Nb
@@ -241,11 +246,15 @@ module difFinitas
             lim_nz = Nz - ordem / 2
 
             ! Calculando o laplaciano
+
+            !$acc parallel loop
             do j=in_n,lim_nx
+                !$acc loop
                 do i=in_n,lim_nz
                     Pxx = 0.0
                     Pzz = 0.0
 
+                    !$acc loop reduction(+:Pxx) reduction(+:Pzz)
                     do k=1,ordem+1
                         ! Derivada em x
                         Pxx = Pxx + coef(k)*P(i,j+k-in_n)
@@ -272,7 +281,7 @@ program wave
     type(axa) :: at,az,ax
     ! Parâmetros do modelo
     integer:: nx,nz,nt,nb,ordem
-    real:: dt,dx,dz
+    real:: dt,dx,dz,start,finish
     ! Campo de velocidade
     real,allocatable:: campoVel(:,:)
     ! Wavelet
@@ -345,7 +354,11 @@ program wave
     fontes(:,1) = [1,nx/2]
 
     ! Chamada da subrotina de propagação da onda
-     call waveEstrap (ordem,nz,nx,nt,nb,dx,dz,dt,pulso,campoVel,fontes,snaps)
+    call cpu_time(start)
+    call waveEstrap (ordem,nz,nx,nt,nb,dx,dz,dt,pulso,campoVel,fontes,snaps)
+    call cpu_time(finish)
+
+    write(0,*) "Tempo total: ",finish-start
 
     ! Escrevendo o arquivo de output
     call rsf_write(Fsnaps,snaps)
@@ -353,3 +366,4 @@ program wave
     ! Saino
     call exit(0)
 end program wave
+
