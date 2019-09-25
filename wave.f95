@@ -1,4 +1,5 @@
 module difFinitas
+    use omp_lib
     !=============================================!
     ! Módulo desenvolvido para efetuar a modelagem
     ! direta da propagação de uma onda ao resolver
@@ -16,7 +17,6 @@ module difFinitas
     contains
 
         subroutine waveEstrap (ordem,Nz,Nx,Nt,Nb,dx,dz,dt,wavelet,campoVel,fontes,snaps)
-            !$acc routine(waveEstrap)
             !=============================================!
             ! Subrotina para fazer a propagação de uma
             ! onda num campo de velocidade.
@@ -131,7 +131,8 @@ module difFinitas
 
             lz=nzb
             lx=nxb
-            !$acc kernels
+            !$omp parallel
+            !$omp do
             do i =1,nb
                 do j=1,nxb
                     p2(i,j)=p2(i,j)*coef(i)
@@ -144,7 +145,8 @@ module difFinitas
                 lx=lx-1
                 lz=lz-1
             enddo
-            !$acc end kernels
+            !$omp end do
+            !$omp end parallel
 
             return
         end subroutine atenuacao
@@ -167,7 +169,8 @@ module difFinitas
 
             ! Copiando os valores do contorno do campo de vel original
             ! na borda do campo extendido
-            !$acc kernels
+            !$omp parallel
+            !$omp do
             do i=-Nb+1,0
                 campoVelExt(i,1:Nx) = campoVel(1,:)
                 campoVelExt(1:Nz,i) = campoVel(:,1)
@@ -175,6 +178,8 @@ module difFinitas
                 campoVelExt(Nz+j,1:Nx) = campoVel(Nx,:)
                 campoVelExt(1:Nz,Nx+j) = campoVel(:,Nz)
             end do
+            !$omp end do nowait
+            !$omp end parallel
 
             ! Fazendo o mesmo para os valores nos 4 cantos do campo de
             ! velocidade original.
@@ -182,7 +187,6 @@ module difFinitas
             campoVelExt(-Nb+1:0,Nx+1:Nx+Nb) = campoVel(1,Nx)
             campoVelExt(Nz+1:Nz+Nb,-Nb+1:0) = campoVel(Nz,1)
             campoVelExt(Nz+1:Nz+Nb,Nx+1:Nx+Nb) = campoVel(Nz,Nx)
-            !$acc end kernels
 
         end function extenCampoVel
 
@@ -247,14 +251,13 @@ module difFinitas
 
             ! Calculando o laplaciano
 
-            !$acc parallel loop
+            !$omp parallel shared(coef,P,laplaciano)
+            !$omp do reduction(+:Pxx) reduction(+:Pzz) schedule(dynamic,1) private(i,j)
             do j=in_n,lim_nx
-                !$acc loop
                 do i=in_n,lim_nz
                     Pxx = 0.0
                     Pzz = 0.0
 
-                    !$acc loop reduction(+:Pxx) reduction(+:Pzz)
                     do k=1,ordem+1
                         ! Derivada em x
                         Pxx = Pxx + coef(k)*P(i,j+k-in_n)
@@ -265,6 +268,9 @@ module difFinitas
                     laplaciano(i,j) = Pxx / dx**2. + Pzz / (dz**2.)
                 end do
             end do
+            !$omp end do nowait
+            !$omp barrier
+            !$omp end parallel
 
             return
         end function laplaciano

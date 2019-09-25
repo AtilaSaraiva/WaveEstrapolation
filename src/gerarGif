@@ -1,1 +1,3 @@
-vpconvert Fig/snaps.vpl format=gif
+#!/bin/zsh
+#vpconvert Fig/snaps.vpl format=gif
+sfpgreywfl <snaps.rsf bg=campoVel.rsf wflcmap=seismic title="Wavefield" barlabel="Velocity (m/s)" tmin=0.08 savefile=figure.gif
