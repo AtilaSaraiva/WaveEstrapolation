@@ -1,6 +1,6 @@
 from rsf.proj import *
 
-nt = 1900 # number of samples in the time axis
+nt = 1500 # number of samples in the time axis
 k1 = 80 # position of the wavelet center
 dt = 0.001 # time sampling rate
 
@@ -98,12 +98,13 @@ for i in range(len(sx)):
     Flow(['data%d' % i,'snaps%d' % i],['wavelet','campoVel'],"""
 ./exe wav=${SOURCES[0]} vel=${SOURCES[1]} snaps=${TARGETS[1]}
  sx=%e sz=0.0000 gxbeg=%e gzbeg=0.000 jgx=%e nr=%d""" % (sx[i],gxbeg,d,nr))
-    Plot('data%d' % i,
+    Flow('dataNoise%d' % i,'data%d' % i,"noise range=0.01")
+    Plot('dataNoise%d' % i,
      '''
      grey gainpanel=a title=Wave
      label1=Time label2=Distance unit1=s unit2=m
      ''')
-    dataNames.append('data%d' % i)
+    dataNames.append('dataNoise%d' % i)
 
 Result('snaps4',
      '''

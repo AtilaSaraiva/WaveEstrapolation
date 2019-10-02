@@ -1,0 +1,16 @@
+3.1-git	exe	rtm/waveEstrBorda/src:	atila@atila-pc	Wed Oct  2 12:06:03 2019
+
+	n2=39
+	o1=0
+	d2=0.01
+	o2=0.2
+	data_format="native_float"
+	esize=4
+	in="/var/tmp/rtm/waveEstrBorda/src/data1.rsf@"
+	n1=1500
+	d1=0.001
+3.1-git	sfnoise	rtm/waveEstrBorda/src:	atila@atila-pc	Wed Oct  2 12:21:10 2019
+
+	data_format="native_float"
+	esize=4
+	in="/var/tmp/rtm/waveEstrBorda/src/dataNoise1.rsf@"

@@ -1,0 +1,15 @@
+3.1-git	sfspike	rtm/waveEstrBorda/src:	atila@atila-pc	Wed Oct  2 12:04:40 2019
+
+	o1=0
+	label1="Time"
+	data_format="native_float"
+	esize=4
+	in="/var/tmp/rtm/waveEstrBorda/src/spike.rsf@"
+	unit1="s"
+	d1=0.001
+	n1=1500
+3.1-git	sfricker1	rtm/waveEstrBorda/src:	atila@atila-pc	Wed Oct  2 12:04:41 2019
+
+	data_format="native_float"
+	esize=4
+	in="/var/tmp/rtm/waveEstrBorda/src/wavelet.rsf@"
