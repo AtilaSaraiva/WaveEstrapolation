@@ -16,16 +16,16 @@ module difFinitas
     real,parameter:: numPi = 3.14159263
     contains
 
-        subroutine waveEstrap (ordem,Nz,Nx,Nt,Nb,dx,dz,dt,wavelet,campoVel,fontes,snaps)
+        subroutine waveEstrap (ordem,Nz,Nx,Nt,Nb,igzbeg,igxbeg,nr,jgx,dx,dz,dt,wavelet,campoVel,fontes,snaps,dat)
             !=============================================!
             ! Subrotina para fazer a propagação de uma
             ! onda num campo de velocidade.
             !=============================================!
 
             ! Entrada e Saída
-            integer,intent(in) :: Nx,Nz,Nt,fontes(:,:),ordem,Nb
-            real,intent(in)    :: campoVel(Nz,Nx),dx,dt,dz,wavelet(:)
-            real,intent(out):: snaps(Nz,Nx,Nt/20-1)
+            integer,intent(in) :: Nx,Nz,Nt,fontes(:,:),ordem,Nb,nr,igxbeg,igzbeg
+            real,intent(in)    :: campoVel(Nz,Nx),dx,dt,dz,wavelet(:),jgx
+            real,intent(out):: snaps(Nz,Nx,Nt/20-1),dat(nt,nr)
 
             ! Variáveis Auxiliares
             real,allocatable   :: P_futuro(:,:),P_passado(:,:),P_atual(:,:) ! Campos de pressão
@@ -37,6 +37,7 @@ module difFinitas
             integer            :: i,j,k                                     ! Contadores
             integer            :: f1,f2,lFontes                             ! Relacionados a posição e num de fontes
             integer            :: Nxb,Nzb                                   ! Dimensões com a borda
+            integer:: passo
 
             ! Criando arquivo para guardar os snaps
             filename = 'snap.ad'
@@ -75,7 +76,7 @@ module difFinitas
                 lap = laplaciano(Nb,ordem,Nxb,Nzb,dx,dz,P_atual)
 
                 ! Resolvendo a equação da onda por diferenças finitas
-                P_futuro = (2.0*P_atual - P_passado  + (dt**2.)*(campoVelExt**2.)*lap)! * mascaraAtenuacaoBorda
+                P_futuro = (2.0*P_atual - P_passado  + (dt**2.)*(campoVelExt**2.)*lap)
 
                 ! Inserindo a wavelet nas posições de fonte
                 do i=1,lFontes
@@ -91,6 +92,10 @@ module difFinitas
                     j = j + 1
                 end if
 
+                passo = int(jgx / dx)
+                do i=1,nr
+                    dat(k,i) = P_futuro(Nb+igzbeg,Nb+igxbeg+i*passo-1)
+                end do
                 P_passado = P_atual
                 P_atual = P_futuro
             end do
@@ -127,24 +132,22 @@ module difFinitas
             real,intent(in):: coef(Nb)
             real, dimension (:,:):: p2(nzb,nxb)
             ! Auxiliares
-            integer:: i,j,lz,lx
+            integer:: i,j,nz,nx,i2,j2
 
-            lz=nzb
-            lx=nxb
+            nz=nzb-2*nb
+            nx=nxb-2*nb
             !$omp parallel
             !$omp do
-            do i =1,nb
-                do j=1,nxb
-                    p2(i,j)=p2(i,j)*coef(i)
-                    p2(lz,j)=p2(lz,j)*coef(i)
+            do i=1,nxb
+                do j=1,nb
+                    p2(i,j) = p2(i,j) * coef(j)
+                    p2(i,nx+nb+j-1) = p2(i,nx+nb+j-1) * coef(nb-j+1)
+                    i2=j
+                    j2=i
+                    p2(i2,j2) = p2(i2,j2) * coef(i2)
+                    p2(nz+nb+i2-1,j2) = p2(nz+nb+i2-1,j2) * coef(nb-i2+1)
                 end do
-                do j=1,nzb
-                    p2(j,i)=p2(j,i)*coef(i)
-                    p2(j,lx)=p2(j,lx)*coef(i)
-                enddo
-                lx=lx-1
-                lz=lz-1
-            enddo
+            end do
             !$omp end do
             !$omp end parallel
 
@@ -277,22 +280,26 @@ module difFinitas
 
 end module difFinitas
 
+
 program wave
     use difFinitas
     use rsf
     implicit none
     logical:: verb
+    real:: sx,sz,gxbeg,gzbeg,jgx
+    integer:: isx,isz,igxbeg,igzbeg,o1,o2,nr
     ! Arquivos de entrada
-    type(file) :: FcampoVel,Fpulso,Fsnaps
+    type(file) :: FcampoVel,Fpulso,Fsnaps,Fdata
     type(axa) :: at,az,ax
     ! Parâmetros do modelo
     integer:: nx,nz,nt,nb,ordem
-    real:: dt,dx,dz,start,finish
+    real:: dt,dx,dz
+    double precision::start,finish
     ! Campo de velocidade
     real,allocatable:: campoVel(:,:)
     ! Wavelet
     real,allocatable:: pulso(:)
-    real,allocatable:: snaps(:,:,:)
+    real,allocatable:: snaps(:,:,:),dat(:,:)
     ! Auxiliares
     integer:: i,j,h1A,h2A,fontes(2,1),k,counter
 
@@ -305,16 +312,31 @@ program wave
     ! Definindo variáveis que vão conter os arquivos
     FcampoVel = rsf_input("vel")
     Fpulso = rsf_input("wav")
-    Fsnaps = rsf_output("out")
+    Fdata = rsf_output("out")
+    Fsnaps = rsf_output("snaps")
 
     ! Retirando do header as informações de geometria
     call from_par(FcampoVel,"n1",az%n)
     call from_par(FcampoVel,"n2",ax%n)
     call from_par(FcampoVel,"d1",az%d)
     call from_par(FcampoVel,"d2",ax%d)
+    call from_par(FcampoVel,"o1",o1)
+    call from_par(FcampoVel,"o2",o2)
  !  call iaxa(FcampoVel,az,1)
  !  call iaxa(FcampoVel,ax,2)
     call iaxa(Fpulso,at,1)
+    call from_par('sx',sx)
+    call from_par('sz',sz)
+    call from_par('gxbeg',gxbeg)
+    call from_par('gzbeg',gzbeg)
+    call from_par('jgx',jgx)
+    call from_par('nr',nr)
+
+    !igxbeg = int((gxbeg - o2 + 1) / ax%d)
+    isx = int((sx - o2) / ax%d) + 1
+    isz = int((sz - o1) / az%d) + 1
+    igxbeg = int((gxbeg - o2)/ ax%d) + 1
+    igzbeg = int((gzbeg - o1) / az%d) + 1
 
  !  ! Definindo a geometria do output
     call to_par (Fsnaps,"d1",az%d)
@@ -329,6 +351,12 @@ program wave
 !   call oaxa(Fsnaps,az,1)
 !   call oaxa(Fsnaps,ax,2)
 !   call oaxa(Fsnaps,at,3)
+    call to_par (Fdata,"d1",at%d)
+    call to_par (Fdata,"d2",jgx)
+    call to_par (Fdata,"o2",gxbeg)
+    call to_par (Fdata,"o1",gzbeg)
+    call to_par (Fdata,"n1",at%n)
+    call to_par (Fdata,"n2",nr)
 
  !  ! Alocando variáveis e lendo
     allocate(campoVel(az%n,ax%n))
@@ -340,6 +368,7 @@ program wave
     call rsf_read(Fpulso,pulso)
 
     allocate(snaps(az%n,ax%n,at%n/20-1))
+    allocate(dat(at%n,nr))
 
     ! Retirando da variável de geometria as informações de geometria
     dt = at%d
@@ -357,17 +386,19 @@ program wave
     ordem = 8
 
     ! Posição da fonte
-    fontes(:,1) = [1,nx/2]
+    fontes(:,1) = [isz,isx]
+
 
     ! Chamada da subrotina de propagação da onda
-    call cpu_time(start)
-    call waveEstrap (ordem,nz,nx,nt,nb,dx,dz,dt,pulso,campoVel,fontes,snaps)
-    call cpu_time(finish)
+    start = omp_get_wtime()
+    call waveEstrap (ordem,nz,nx,nt,nb,igzbeg,igxbeg,nr,jgx,dx,dz,dt,pulso,campoVel,fontes,snaps,dat)
+    finish = omp_get_wtime()
 
     write(0,*) "Tempo total: ",finish-start
 
     ! Escrevendo o arquivo de output
     call rsf_write(Fsnaps,snaps)
+    call rsf_write(Fdata,dat)
 
     ! Saino
     call exit(0)
